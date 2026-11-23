@@ -25,8 +25,8 @@ jobs:
 
       - name: Configure git user (gt-ayush)
         run: |
-          git config user.name "gt-ayush"
-          git config user.email "gt-ayush@outlook.com"
+          git config --global user.name "gt-ayush"
+          git config --global user.email "gt-ayush@outlook.com"
 
       - name: Generate date-based version
         id: version
@@ -50,6 +50,7 @@ jobs:
           cat PKGBUILD | grep -E '^(pkgver|pkgrel)='
 
       - name: Create and push version tag
+        working-directory: ${{ github.workspace }}
         run: |
           git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
           git push origin "${{ steps.version.outputs.tag }}"
