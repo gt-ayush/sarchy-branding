@@ -7,8 +7,8 @@ Part of the [Sarchy-iso](https://github.com/gt-ayush/Sarchy-iso) project.
 
 | Asset | Location |
 |-------|----------|
-| Wallpaper (SVG, resolution-independent) | `usr/share/backgrounds/sarchy/sarchy-wallpaper.svg` |
-| App icon (SVG) | `usr/share/icons/hicolor/scalable/apps/sarchy.svg` |
+| Wallpaper (PNG) | `usr/share/backgrounds/sarchy/sarchy-wallpaper.png` |
+| App icon (PNG, multiple sizes) | `usr/share/icons/hicolor/{16,32,64,128,256,512,scalable}/apps/sarchy.png` |
 | Plymouth boot theme | `usr/share/plymouth/themes/sarchy/` |
 | GRUB theme | `usr/share/grub/themes/sarchy/` |
 | SDDM theme | `usr/share/sddm/themes/sarchy/` |
