@@ -28,27 +28,28 @@ jobs:
           git config user.name "gt-ayush"
           git config user.email "gt-ayush@outlook.com"
 
-      - name: Extract version from PKGBUILD
+      - name: Generate date-based version
         id: version
         run: |
-          PKGVER=$(grep '^pkgver=' PKGBUILD | cut -d= -f2)
-          PKGREL=$(grep '^pkgrel=' PKGBUILD | cut -d= -f2)
-          TAG="v${PKGVER}-${PKGREL}"
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "pkgver=${PKGVER}" >> $GITHUB_OUTPUT
+          DATE=$(date +%Y.%m.%d)
+          TAG="v${DATE}"
+          PKGREL=1
+          # If tag already exists for today, bump pkgrel
+          while git rev-parse "${TAG}-${PKGREL}" >/dev/null 2>&1; do
+            PKGREL=$((PKGREL + 1))
+          done
+          FULL_TAG="${TAG}-${PKGREL}"
+          echo "tag=${FULL_TAG}" >> $GITHUB_OUTPUT
+          echo "date=${DATE}" >> $GITHUB_OUTPUT
           echo "pkgrel=${PKGREL}" >> $GITHUB_OUTPUT
 
-      - name: Check if tag already exists
-        id: check-tag
+      - name: Update PKGBUILD with date version
         run: |
-          if git rev-parse "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
+          sed -i "s/^pkgver=.*/pkgver=${{ steps.version.outputs.date }}/" PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=${{ steps.version.outputs.pkgrel }}/" PKGBUILD
+          cat PKGBUILD | grep -E '^(pkgver|pkgrel)='
 
       - name: Create and push version tag
-        if: steps.check-tag.outputs.exists == 'false'
         run: |
           git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
           git push origin "${{ steps.version.outputs.tag }}"
@@ -72,7 +73,6 @@ jobs:
           retention-days: 30
 
       - name: Create GitHub Release
-        if: steps.check-tag.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
@@ -80,8 +80,8 @@ jobs:
           body: |
             Sarchy Branding ${{ steps.version.outputs.tag }}
 
-            Assets:
-            - `sarchy-branding-${{ steps.version.outputs.pkgver }}-${{ steps.version.outputs.pkgrel }}-any.pkg.tar.zst`
+            Built on: ${{ steps.version.outputs.date }}
+            Package: `sarchy-branding-${{ steps.version.outputs.date }}-${{ steps.version.outputs.pkgrel }}-any.pkg.tar.zst`
           files: |
             *.pkg.tar.zst
           generate_release_notes: false
