@@ -1,26 +1,57 @@
-name: Build sarchy-branding package
+name: Build and Release sarchy-branding
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
-  release:
-    types: [published]
 
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
     container:
       image: archlinux:base
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install build dependencies
         run: |
           pacman -Sy --noconfirm --needed base-devel git fakeroot
+
+      - name: Configure git user (gt-ayush)
+        run: |
+          git config user.name "gt-ayush"
+          git config user.email "gt-ayush@outlook.com"
+
+      - name: Extract version from PKGBUILD
+        id: version
+        run: |
+          PKGVER=$(grep '^pkgver=' PKGBUILD | cut -d= -f2)
+          PKGREL=$(grep '^pkgrel=' PKGBUILD | cut -d= -f2)
+          TAG="v${PKGVER}-${PKGREL}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "pkgver=${PKGVER}" >> $GITHUB_OUTPUT
+          echo "pkgrel=${PKGREL}" >> $GITHUB_OUTPUT
+
+      - name: Check if tag already exists
+        id: check-tag
+        run: |
+          if git rev-parse "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push version tag
+        if: steps.check-tag.outputs.exists == 'false'
+        run: |
+          git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
 
       - name: Create non-root build user
         run: |
@@ -38,21 +69,19 @@ jobs:
           name: sarchy-branding-package
           path: |
             *.pkg.tar.zst
-            *.pkg.tar.zst.sig
           retention-days: 30
 
-  release:
-    needs: build
-    if: github.event_name == 'release' && github.event.action == 'published'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download built package
-        uses: actions/download-artifact@v4
-        with:
-          name: sarchy-branding-package
-          path: dist
-
-      - name: Upload package to release
+      - name: Create GitHub Release
+        if: steps.check-tag.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.pkg.tar.zst
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          body: |
+            Sarchy Branding ${{ steps.version.outputs.tag }}
+
+            Assets:
+            - `sarchy-branding-${{ steps.version.outputs.pkgver }}-${{ steps.version.outputs.pkgrel }}-any.pkg.tar.zst`
+          files: |
+            *.pkg.tar.zst
+          generate_release_notes: false
